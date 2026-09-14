@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Media Test Report Builder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{
+    --ink:#17212B;
+    --muted:#5B6B7A;
+    --line:#D6DDE3;
+    --bg:#EDF0F3;
+    --panel:#FFFFFF;
+    --accent:#0E7C9E;      /* printer cyan */
+    --accent-dark:#0A5F7A;
+    --good:#1E7A46;
+    --focus:#0E7C9E;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:"IBM Plex Sans",system-ui,sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+    font-size:15px;
+    line-height:1.45;
+  }
+  .app{max-width:960px;margin:0 auto;padding:28px 20px 80px}
+
+  /* Header */
+  header.masthead{
+    display:flex;align-items:center;gap:14px;
+    padding-bottom:18px;margin-bottom:22px;
+    border-bottom:2px solid var(--ink);
+  }
+  .cmyk{display:flex;gap:5px;flex-shrink:0}
+  .cmyk span{width:13px;height:13px;border-radius:50%}
+  .cmyk span:nth-child(1){background:#00A5CF}
+  .cmyk span:nth-child(2){background:#D9367C}
+  .cmyk span:nth-child(3){background:#F2C230}
+  .cmyk span:nth-child(4){background:#17212B}
+  header.masthead h1{font-size:21px;font-weight:700;letter-spacing:-0.01em}
+  header.masthead p{color:var(--muted);font-size:13.5px;margin-top:2px}
+
+  /* Stepper */
+  .stepper{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px}
+  .step-chip{
+    padding:6px 14px;border:1.5px solid var(--line);border-radius:999px;
+    background:#fff;font-size:13px;color:var(--muted);cursor:default;
+    font-weight:500;
+  }
+  .step-chip.done{border-color:var(--good);color:var(--good)}
+  .step-chip.active{border-color:var(--accent);background:var(--accent);color:#fff}
+  .step-chip.clickable{cursor:pointer}
+
+  /* Panels */
+  .panel{
+    background:var(--panel);border:1.5px solid var(--line);border-radius:10px;
+    padding:26px 28px;margin-bottom:18px;
+  }
+  .panel h2{font-size:17px;font-weight:600;margin-bottom:4px}
+  .panel .sub{color:var(--muted);font-size:13.5px;margin-bottom:20px}
+
+  .field{margin-bottom:18px}
+  .field label{display:block;font-weight:600;font-size:13.5px;margin-bottom:6px}
+  .field .hint{font-weight:400;color:var(--muted);font-size:12.5px;margin-left:6px}
+  input[type=text],input[type=number],select,textarea{
+    width:100%;padding:9px 12px;border:1.5px solid var(--line);border-radius:7px;
+    font:inherit;color:var(--ink);background:#fff;
+  }
+  textarea{min-height:84px;resize:vertical}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--focus);outline-offset:1px;border-color:var(--focus)}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+  @media(max-width:640px){.row2,.row3{grid-template-columns:1fr}}
+
+  .grade-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:640px){.grade-grid{grid-template-columns:1fr}}
+
+  /* Image upload */
+  .drop{
+    border:1.5px dashed var(--line);border-radius:8px;padding:18px;
+    display:flex;align-items:center;gap:16px;background:#FAFBFC;
+  }
+  .drop img{max-height:110px;max-width:180px;border:1px solid var(--line);border-radius:4px;background:#fff}
+  .drop .placeholder{color:var(--muted);font-size:13.5px}
+  .btn{
+    display:inline-block;padding:9px 18px;border-radius:7px;border:1.5px solid var(--ink);
+    background:#fff;color:var(--ink);font:inherit;font-weight:600;font-size:14px;cursor:pointer;
+  }
+  .btn:hover{background:#F2F4F6}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.primary:hover{background:var(--accent-dark);border-color:var(--accent-dark)}
+  .btn.small{padding:6px 12px;font-size:13px}
+  .btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+  .btn-row{display:flex;justify-content:space-between;gap:12px;margin-top:6px}
+  .btn-row .right{margin-left:auto;display:flex;gap:10px}
+
+  .removed-img{margin-left:8px}
+
+  /* ------- Report page (preview + PDF source) ------- */
+  .report-wrap{overflow-x:auto;padding:4px}
+  .page{
+    width:850px;min-height:1100px;
+    background:#fff;margin:0 auto 26px;
+    display:flex;flex-direction:column;
+    box-shadow:0 1px 6px rgba(0,0,0,.15);
+    font-family:"Times New Roman",Times,serif;color:#000;
+  }
+  .page .banner{height:46px;background:#622276;flex-shrink:0}
+  .page .toprule{border-top:1px solid #7651A4;margin:46px 40px 14px}
+  .page .content{padding:0 42px;flex:1}
+  .page .pagefoot{padding:0 42px 22px;flex-shrink:0}
+  .page .pagefoot .rule{border-top:1px solid #A6A6A6;margin-bottom:8px}
+  .page .pagefoot .txt{font-family:Calibri,Arial,sans-serif;font-size:14px;color:#262626}
+
+  .report{border:1px solid #000}
+  .report table{border-collapse:collapse;width:100%;table-layout:fixed}
+  .report td{border:1px solid #000;padding:4px 8px;vertical-align:top;font-size:15px}
+  .report .lbl{font-weight:bold}
+  .report .red{color:#C00000;font-weight:bold}
+  .report .redplain{color:#C00000}
+  .report .center{text-align:center}
+  .report .opt{text-align:center;vertical-align:middle;padding:4px 3px}
+  .report .opt .pill{display:inline-block;padding:2px 8px;max-width:100%;box-sizing:border-box;font-size:14px}
+  .report .opt.sel .pill{border:2px solid #000;border-radius:45%;font-weight:bold}
+  .report .imgcell{height:150px;vertical-align:top}
+  .report .imgcell img{display:block;max-height:118px;max-width:95%;margin:6px auto 0}
+  .report .foot{font-weight:bold;font-size:12px;padding:3px 8px}
+  .report .comments-body{min-height:44px;overflow-wrap:break-word;word-break:break-word;white-space:pre-wrap;font-size:15px}
+  .report .ref-text{margin-top:10px;overflow-wrap:break-word;word-break:break-word;min-height:24px}
+  /* Flexible profile row: value cell grows with content, squeezing the cells to its right */
+  .report .flexrow{display:flex;align-items:stretch;width:100%}
+  .report .flexrow>div{padding:4px 8px;border-right:1px solid #000;min-height:100%}
+  .report .flexrow>div:last-child{border-right:none}
+  .report .fr-label{flex:0 0 14%;font-weight:bold}
+  .report .fr-grow{flex:0 1 auto;min-width:13%;max-width:52%;overflow-wrap:break-word;word-break:break-word}
+  .report .fr-fixed{flex:0 0 auto;font-weight:bold}
+  .report .fr-rest{flex:1 1 60px;min-width:60px;overflow-wrap:break-word;word-break:break-word}
+  .report .small-lbl{font-weight:bold}
+
+  /* Review page */
+  .review-actions{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:22px}
+  .note{font-size:13px;color:var(--muted);margin-top:10px}
+
+  .hidden{display:none!important}
+  .toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+    background:var(--ink);color:#fff;padding:10px 20px;border-radius:8px;font-size:14px;
+    opacity:0;pointer-events:none;transition:opacity .25s;
+  }
+  .toast.show{opacity:1}
+  @media (prefers-reduced-motion: reduce){ .toast{transition:none} }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="masthead">
+    <div class="cmyk" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+    <div style="flex:1">
+      <h1>Media Test Report Builder</h1>
+      <p>Enter each product's test results step by step, then download the finished report as a PDF.</p>
+    </div>
+    <button class="btn small" id="resetBtn" type="button">Start over</button>
+  </header>
+
+  <nav class="stepper" id="stepper" aria-label="Progress"></nav>
+
+  <!-- STEP: setup -->
+  <section class="panel" id="setupPanel">
+    <h2>Report setup</h2>
+    <p class="sub">How many products (media samples) are in this report? Each product gets its own page in the PDF.</p>
+    <div class="field" style="max-width:220px">
+      <label for="numProducts">Number of products</label>
+      <input type="number" id="numProducts" min="1" max="25" value="1">
+    </div>
+    <div class="btn-row">
+      <span></span>
+      <div class="right">
+        <button class="btn primary" id="startBtn">Start entering products</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- STEP: product form -->
+  <section class="panel hidden" id="productPanel">
+    <h2 id="productTitle">Product 1</h2>
+    <p class="sub">Fill in the test results for this product. Everything here appears on its page of the report.</p>
+
+    <div class="field">
+      <label for="f_ref">REF# or Description</label>
+      <input type="text" id="f_ref" placeholder="e.g. REF-2041 — 4×6 matte tag stock">
+    </div>
+
+    <div class="field">
+      <label>Image of corner of what was printed <span class="hint">optional</span></label>
+      <div class="drop">
+        <img id="imgPreview" class="hidden" alt="Uploaded print sample">
+        <span class="placeholder" id="imgPlaceholder">No image uploaded yet.</span>
+        <div>
+          <button class="btn small" id="uploadBtn" type="button">Upload image</button>
+          <button class="btn small hidden removed-img" id="removeImgBtn" type="button">Remove</button>
+          <input type="file" id="imgInput" accept="image/*" class="hidden">
+        </div>
+      </div>
+    </div>
+
+    <div class="grade-grid">
+      <div class="field">
+        <label for="f_ink">Ink Receptive</label>
+        <select id="f_ink">
+          <option value="">— Select —</option>
+          <option>Poor</option><option>Acceptable</option><option>Good</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="f_pq">Print Quality</label>
+        <select id="f_pq">
+          <option value="">— Select —</option>
+          <option>Poor</option><option>Acceptable</option><option>Good</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="f_mc">Media Consistency</label>
+        <select id="f_mc">
+          <option value="">— Select —</option>
+          <option>Poor</option><option>Acceptable</option><option>Good</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="f_fp">Feeder Performance <span class="hint">AJ-Series printers only</span></label>
+        <select id="f_fp">
+          <option value="">— Select —</option>
+          <option>N/A</option><option>Poor</option><option>Acceptable</option><option>Good</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row2">
+      <div class="field">
+        <label for="f_res">Print Speed / Resolution used</label>
+        <select id="f_res">
+          <option value="">— Select —</option>
+          <option value="1200x1200">1200 × 1200 (9 ips)</option>
+          <option value="1200x600">1200 × 600 (18 ips)</option>
+          <option value="1200x300">1200 × 300 (27 ips)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="f_speed">Speed Printed</label>
+        <input type="text" id="f_speed" placeholder="e.g. 18 ips">
+      </div>
+    </div>
+
+    <div class="row2">
+      <div class="field">
+        <label for="f_profile">Color Profile Used</label>
+        <input type="text" id="f_profile" placeholder="e.g. Matte Tag v3.icc">
+      </div>
+      <div class="field">
+        <label for="f_altered">Color Profile Altered <span class="hint">changes to accommodate customer media</span></label>
+        <select id="f_altered">
+          <option value="">— Select —</option>
+          <option>Yes</option><option>No</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row2">
+      <div class="field">
+        <label for="f_prod">Estimated Productivity <span class="hint">pieces per hour</span></label>
+        <input type="text" id="f_prod" placeholder="e.g. 4,500">
+      </div>
+      <div class="field">
+        <label for="f_max">Max Throughput <span class="hint">pieces per hour</span></label>
+        <input type="text" id="f_max" placeholder="e.g. 6,200">
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="f_comments">Comments</label>
+      <textarea id="f_comments" placeholder="Observations, media handling notes, recommended settings…"></textarea>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn" id="backBtn">Back</button>
+      <div class="right">
+        <button class="btn primary" id="nextBtn">Next</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- STEP: review -->
+  <section class="panel hidden" id="reviewPanel">
+    <h2>Review &amp; download</h2>
+    <p class="sub">Each product below is one page of the PDF. Click any step above to go back and edit.</p>
+    <div class="review-actions">
+      <button class="btn primary" id="pdfBtn">Download PDF</button>
+      <button class="btn" id="printBtn">Print</button>
+    </div>
+    <div class="report-wrap" id="reportContainer"></div>
+    <p class="note">Tip: "Download PDF" builds the file directly. "Print" opens your browser's print dialog if you prefer to print to paper or save with selectable text.</p>
+  </section>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  var blankProduct = function(){
+    return { ref:"", image:null, ink:"", pq:"", mc:"", fp:"", res:"", speed:"",
+             profile:"", altered:"", prod:"", max:"", comments:"" };
+  };
+
+  var state = { count:1, products:[blankProduct()], step:-1 }; // -1 = setup, 0..n-1 = product, n = review
+
+  /* ---------- Auto-save (survives closing the browser) ---------- */
+  var STORAGE_KEY = "mediaTestReport.v1";
+  var storageWarned = false;
+  function persist(){
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }catch(e){
+      if(!storageWarned){
+        storageWarned = true;
+        toast("Auto-save is unavailable or full — your data only lives in this tab.");
+      }
+    }
+  }
+  function restore(){
+    try{
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if(!raw) return false;
+      var saved = JSON.parse(raw);
+      if(!saved || !saved.products || !saved.products.length) return false;
+      state.count = saved.count || saved.products.length;
+      state.products = saved.products.map(function(p){
+        var b = blankProduct();
+        for(var k in b) if(p[k] !== undefined) b[k] = p[k];
+        return b;
+      });
+      state.step = (typeof saved.step === "number") ? saved.step : -1;
+      if(state.step > state.count) state.step = state.count;
+      return true;
+    }catch(e){ return false; }
+  }
+  function clearSaved(){
+    try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
+  }
+
+  var $ = function(id){ return document.getElementById(id); };
+  var setupPanel=$("setupPanel"), productPanel=$("productPanel"), reviewPanel=$("reviewPanel");
+
+  /* ---------- Stepper ---------- */
+  function renderStepper(){
+    var el = $("stepper"); el.innerHTML = "";
+    var mk = function(label, idx){
+      var c = document.createElement("button");
+      c.className = "step-chip";
+      c.type = "button";
+      c.textContent = label;
+      if(state.step === idx) c.classList.add("active");
+      else if(idx < state.step) c.classList.add("done");
+      c.classList.add("clickable");
+      c.addEventListener("click", function(){ goTo(idx); });
+      el.appendChild(c);
+    };
+    mk("Setup", -1);
+    for(var i=0;i<state.count;i++) mk("Product "+(i+1), i);
+    mk("Review", state.count);
+  }
+
+  /* ---------- Navigation ---------- */
+  function goTo(step){
+    if(state.step >= 0 && state.step < state.count) saveForm(state.step);
+    state.step = step;
+    setupPanel.classList.toggle("hidden", step !== -1);
+    productPanel.classList.toggle("hidden", !(step >= 0 && step < state.count));
+    reviewPanel.classList.toggle("hidden", step !== state.count);
+    if(step >= 0 && step < state.count) loadForm(step);
+    if(step === state.count) renderReports();
+    renderStepper();
+    persist();
+    window.scrollTo({top:0});
+  }
+
+  $("startBtn").addEventListener("click", function(){
+    var n = parseInt($("numProducts").value, 10);
+    if(!(n >= 1)) n = 1;
+    if(n > 25) n = 25;
+    state.count = n;
+    while(state.products.length < n) state.products.push(blankProduct());
+    state.products.length = n;
+    goTo(0);
+  });
+
+  $("backBtn").addEventListener("click", function(){ goTo(state.step - 1); });
+  $("nextBtn").addEventListener("click", function(){ goTo(state.step + 1); });
+
+  /* ---------- Form load/save ---------- */
+  var fields = ["ref","ink","pq","mc","fp","res","speed","profile","altered","prod","max","comments"];
+  var fieldIds = { ref:"f_ref", ink:"f_ink", pq:"f_pq", mc:"f_mc", fp:"f_fp", res:"f_res",
+                   speed:"f_speed", profile:"f_profile", altered:"f_altered",
+                   prod:"f_prod", max:"f_max", comments:"f_comments" };
+
+  function loadForm(i){
+    var p = state.products[i];
+    $("productTitle").textContent = "Product " + (i+1) + " of " + state.count;
+    fields.forEach(function(f){ $(fieldIds[f]).value = p[f]; });
+    setImagePreview(p.image);
+    $("nextBtn").textContent = (i === state.count-1) ? "Review report" : "Next product";
+  }
+  function saveForm(i){
+    var p = state.products[i];
+    fields.forEach(function(f){ p[f] = $(fieldIds[f]).value; });
+  }
+
+  // Save as you type, so a half-finished form survives closing the browser
+  fields.forEach(function(f){
+    $(fieldIds[f]).addEventListener("input", function(){
+      if(state.step >= 0 && state.step < state.count){
+        state.products[state.step][f] = this.value;
+        persist();
+      }
+    });
+  });
+
+  /* ---------- Image upload ---------- */
+  function setImagePreview(dataUrl){
+    var img=$("imgPreview"), ph=$("imgPlaceholder"), rm=$("removeImgBtn");
+    if(dataUrl){ img.src=dataUrl; img.classList.remove("hidden"); ph.classList.add("hidden"); rm.classList.remove("hidden"); }
+    else{ img.removeAttribute("src"); img.classList.add("hidden"); ph.classList.remove("hidden"); rm.classList.add("hidden"); }
+  }
+  // Downscale photos (phone cameras produce huge files) so they auto-save and keep the PDF small
+  function shrinkImage(dataUrl, cb){
+    var im = new Image();
+    im.onload = function(){
+      var MAX = 1200;
+      var w = im.width, h = im.height;
+      if(w <= MAX && h <= MAX && dataUrl.length < 700000){ cb(dataUrl); return; }
+      var scale = Math.min(MAX / w, MAX / h, 1);
+      var c = document.createElement("canvas");
+      c.width = Math.round(w * scale); c.height = Math.round(h * scale);
+      c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
+      cb(c.toDataURL("image/jpeg", 0.85));
+    };
+    im.onerror = function(){ cb(dataUrl); };
+    im.src = dataUrl;
+  }
+  $("uploadBtn").addEventListener("click", function(){ $("imgInput").click(); });
+  $("imgInput").addEventListener("change", function(e){
+    var file = e.target.files && e.target.files[0];
+    if(!file) return;
+    var reader = new FileReader();
+    reader.onload = function(ev){
+      shrinkImage(ev.target.result, function(small){
+        state.products[state.step].image = small;
+        setImagePreview(small);
+        persist();
+      });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  });
+  $("removeImgBtn").addEventListener("click", function(){
+    state.products[state.step].image = null;
+    setImagePreview(null);
+    persist();
+  });
+
+  /* ---------- Start over ---------- */
+  $("resetBtn").addEventListener("click", function(){
+    if(!confirm("Start over? This clears the current report and any auto-saved data.")) return;
+    clearSaved();
+    state.count = 1;
+    state.products = [blankProduct()];
+    $("numProducts").value = 1;
+    goTo(-1);
+    toast("Cleared — starting fresh");
+  });
+
+  /* ---------- Report rendering ---------- */
+  function esc(s){
+    return String(s || "").replace(/[&<>"]/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];
+    });
+  }
+  function opts(list, selected, colspans){
+    return list.map(function(o, idx){
+      var sel = selected && o.toUpperCase() === selected.toUpperCase();
+      var cs = colspans && colspans[idx] ? ' colspan="'+colspans[idx]+'"' : "";
+      return '<td class="opt'+(sel?" sel":"")+'"'+cs+'><span class="pill">'+o+'</span></td>';
+    }).join("");
+  }
+  function resRow(selected){
+    var defs = [ {v:"1200x1200", top:"1200x1200", bot:"9"},
+                 {v:"1200x600",  top:"1200x600",  bot:"18"},
+                 {v:"1200x300",  top:"1200x300",  bot:"27"} ];
+    return defs.map(function(d, idx){
+      var sel = selected === d.v;
+      var cs = idx === 2 ? ' colspan="3"' : "";
+      return '<td class="opt'+(sel?" sel":"")+'"'+cs+'><span class="pill">'+d.top+'<br>'+d.bot+'</span></td>';
+    }).join("");
+  }
+
+  function reportHTML(p, idx){
+    var imgTag = p.image
+      ? '<img src="'+p.image+'" alt="Print sample">'
+      : '';
+    return '' +
+    '<div class="page" id="page'+idx+'">' +
+      '<div class="banner"></div>' +
+      '<div class="toprule"></div>' +
+      '<div class="content">' +
+      '<div class="report">' +
+      '<table>' +
+        '<colgroup><col style="width:14%"><col style="width:13%"><col style="width:17%"><col style="width:8%"><col style="width:9%"><col style="width:39%"></colgroup>' +
+        // Header row: image + REF
+        '<tr>' +
+          '<td colspan="3" class="imgcell"><span class="red">Image on Corner of what was printed</span>'+imgTag+'</td>' +
+          '<td colspan="3" style="vertical-align:top"><span class="red">REF# or Description</span><div class="ref-text">'+esc(p.ref)+'</div></td>' +
+        '</tr>' +
+        // Grades
+        '<tr><td class="lbl">Ink Receptive:</td>'+opts(["POOR","ACCEPTABLE","GOOD"], p.ink, [1,1,3])+'</tr>' +
+        '<tr><td class="lbl">Print Quality:</td>'+opts(["POOR","ACCEPTABLE","GOOD"], p.pq, [1,1,3])+'</tr>' +
+        '<tr><td class="lbl">Media Consistency:</td>'+opts(["POOR","ACCEPTABLE","GOOD"], p.mc, [1,1,3])+'</tr>' +
+        '<tr><td class="lbl">Feeder Performance (AJ-Series Printers Only)</td>'+opts(["N/A","POOR","ACCEPTABLE","GOOD"], p.fp, [1,1,2,1])+'</tr>' +
+        // Resolution
+        '<tr><td class="lbl">Print Speed / Resolution</td>'+resRow(p.res)+'</tr>' +
+        // Profile + speed (flexible: profile value grows, squeezing Speed Printed cells)
+        '<tr><td colspan="6" style="padding:0">' +
+          '<div class="flexrow">' +
+            '<div class="fr-label">Color Profile Use:</div>' +
+            '<div class="fr-grow">'+esc(p.profile)+'</div>' +
+            '<div class="fr-fixed">Speed Printed</div>' +
+            '<div class="fr-rest">'+esc(p.speed)+'</div>' +
+          '</div>' +
+        '</td></tr>' +
+        // Profile altered
+        '<tr>' +
+          '<td colspan="3" class="lbl">Color Profile Altered (changes to accommodate customer media):</td>' +
+          opts(["YES","NO"], p.altered, [1,2]) +
+        '</tr>' +
+        // Productivity + max throughput
+        '<tr>' +
+          '<td class="lbl">Estimated Productivity</td>' +
+          '<td class="center">'+esc(p.prod)+'</td>' +
+          '<td class="lbl">Pieces per Hour</td>' +
+          '<td colspan="2" class="lbl">Max Throughput</td>' +
+          '<td><span style="display:inline-block;min-width:70px">'+esc(p.max)+'</span><span class="lbl">Pieces per Hour</span></td>' +
+        '</tr>' +
+        // Footnote
+        '<tr><td colspan="6" class="foot">*Estimated productivity is based on continuous printing and does not take into consideration time for maintenance cleaning, printer environmental conditions, or feeding delays due to material inconsistency</td></tr>' +
+        // Comments
+        '<tr><td colspan="6"><span class="lbl">Comments:</span><div class="comments-body">'+esc(p.comments).replace(/\n/g,"<br>")+'</div></td></tr>' +
+      '</table>' +
+      '</div>' +
+      '</div>' +
+      '<div class="pagefoot"><div class="rule"></div><div class="txt">AJ-800/1300 Customer Acceptance Guide</div></div>' +
+    '</div>';
+  }
+
+  function renderReports(){
+    var html = "";
+    state.products.forEach(function(p, i){ html += reportHTML(p, i); });
+    $("reportContainer").innerHTML = html;
+  }
+
+  /* ---------- PDF ---------- */
+  $("pdfBtn").addEventListener("click", function(){
+    var btn = this;
+    btn.disabled = true; btn.textContent = "Building PDF…";
+    var jsPDF = window.jspdf.jsPDF;
+    var pdf = new jsPDF({ orientation:"portrait", unit:"pt", format:"letter" });
+    var pageW = pdf.internal.pageSize.getWidth();
+    var pageH = pdf.internal.pageSize.getHeight();
+
+    var reports = Array.prototype.slice.call(document.querySelectorAll(".page"));
+    var chain = Promise.resolve();
+    reports.forEach(function(node, i){
+      chain = chain.then(function(){
+        return html2canvas(node, { scale:2, backgroundColor:"#ffffff", useCORS:true }).then(function(canvas){
+          if(i > 0) pdf.addPage();
+          var ratio = Math.min(pageW / canvas.width, pageH / canvas.height);
+          var w = canvas.width * ratio, h = canvas.height * ratio;
+          pdf.addImage(canvas.toDataURL("image/jpeg", 0.95), "JPEG",
+                       (pageW - w)/2, 0, w, h);
+        });
+      });
+    });
+    chain.then(function(){
+      pdf.save("Media-Test-Report.pdf");
+      btn.disabled = false; btn.textContent = "Download PDF";
+      toast("PDF downloaded");
+    }).catch(function(err){
+      console.error(err);
+      btn.disabled = false; btn.textContent = "Download PDF";
+      toast("Could not build the PDF — try the Print button instead.");
+    });
+  });
+
+  $("printBtn").addEventListener("click", function(){ window.print(); });
+
+  function toast(msg){
+    var t = $("toast"); t.textContent = msg; t.classList.add("show");
+    setTimeout(function(){ t.classList.remove("show"); }, 2600);
+  }
+
+  if(restore()){
+    $("numProducts").value = state.count;
+    goTo(state.step);
+    toast("Restored your saved report");
+  }else{
+    renderStepper();
+  }
+})();
+</script>
+<style media="print">
+  body{background:#fff}
+  .masthead,.stepper,.review-actions,.note,.panel:not(#reviewPanel){display:none!important}
+  #reviewPanel{border:none;padding:0}
+  #reviewPanel h2,#reviewPanel .sub{display:none}
+  .page{page-break-after:always;width:100%!important;min-height:auto!important;box-shadow:none!important;margin:0!important}
+  .page:last-child{page-break-after:auto}
+  .page .banner{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+</style>
+</body>
+</html>
