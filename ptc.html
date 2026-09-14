@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Printer Throughput Calculator</title>
+  <style>
+    body { font-family: Arial, sans-serif; background-color: #f5f7fa; color: #333; }
+    .container { max-width: 700px; margin: 50px auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    h1, h2 { text-align: center; color: #0066cc; margin-bottom: 10px; }
+    .form-group { margin-bottom: 15px; }
+    label { display: block; margin-bottom: 5px; font-weight: bold; }
+    input[type="number"], select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+    button { background-color: #0066cc; color: #fff; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; }
+    button:hover { background-color: #005bb5; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { padding: 10px; border: 1px solid #ddd; text-align: center; }
+    th { background-color: #e1efff; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Printer Throughput Calculator</h1>
+    <div class="form-group">
+      <label for="speed">Print Speed (inches/sec):</label>
+      <select id="speed">
+        <option value="6">6</option>
+        <option value="9">9</option>
+        <option value="12">12</option>
+        <option value="18">18</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="length">Material Length (inches):</label>
+      <input type="number" id="length" value="11.7" step="any">
+    </div>
+    <div class="form-group">
+      <label for="gap">Gap Size (inches):</label>
+      <input type="number" id="gap" value="0.5" step="any">
+    </div>
+    <div class="form-group">
+      <label for="initialDelay">Time to First Material (seconds):</label>
+      <input type="number" id="initialDelay" value="2" step="any">
+    </div>
+    <div class="form-group">
+      <label for="midInterval">Mid-job Cleaning Interval (meters):</label>
+      <input type="number" id="midInterval" value="30" step="any">
+    </div>
+    <div class="form-group">
+      <label for="cleanTime">Cleaning Time (seconds):</label>
+      <input type="number" id="cleanTime" value="60" step="any">
+    </div>
+    <button id="calculate">Calculate</button>
+
+    <div id="results"></div>
+
+    <h2>Popular Material Sizes</h2>
+    <table>
+      <tr>
+        <th>Material</th>
+        <th>Size (inches)</th>
+        <th>Recommended Gap Size (inches)</th>
+        <th>Pieces per Hour</th>      
+	  </tr>
+      <tr><td>Envelopes</td><td>4.125 × 9.5</td><td>2</td><td>10,580</td></tr>
+      <tr><td>Bubble Mailer</td><td>8.5 × 12</td><td>4.5</td><td>4,985</td></tr>
+      <tr><td>Cocktail Napkins</td><td>5 × 5</td><td>2.5</td><td>8,640</td></tr>
+      <tr><td>Luncheon Napkins</td><td>13 × 13</td><td>6.5</td><td>3,323</td></tr>
+      <tr><td>Small Paper Bag with Handle</td><td>6.5 × 6.5</td><td>Auto Feeder</td><td>1800</td></tr>
+      <tr><td>Medium Paper Bag with Handle</td><td>8 × 10</td><td>Auto Feeder</td><td>1800</td></tr>
+      <tr><td>Large Paper Bag with Handle</td><td>16 × 12</td><td>Auto Feeder</td><td>1800</td></tr>
+      <tr><td>Greeting Cards</td><td>5 × 7</td><td>2.5</td><td>8,640</td></tr>
+      <tr><td>Coasters</td><td>4 × 4</td><td>2</td><td>10,800</td></tr>
+      <tr><td>8x8x6 Box - S-18947</td><td> 14.63 x 16.25</td><td>8</td><td>2,672</td></tr>
+      <tr><td>Small Pizza Box (12")</td><td>16" × 33"</td><td>17</td><td>1,296</td></tr>
+      <tr><td>Medium Pizza Box (16")</td><td>20" × 41"</td><td>21</td><td>1,045</td></tr>
+      <tr><td>Large Pizza Box (18")</td><td>22" × 45"</td><td>23</td><td>953</td></tr>
+      <tr><td>Extra-Large Pizza Box (20")</td><td>24.5" × 49"</td><td>25</td><td>876</td></tr>
+    </table>
+  </div>
+
+  <script>
+    // Format values: floor and add commas if >=1000, else fixed decimals
+    function formatValue(val, decimals) {
+      if (val >= 1000) {
+        return Math.floor(val).toLocaleString();
+      }
+      return val.toFixed(decimals);
+    }
+
+    document.getElementById('calculate').addEventListener('click', function() {
+      const speed = parseFloat(document.getElementById('speed').value);
+      const length = parseFloat(document.getElementById('length').value);
+      const gap = parseFloat(document.getElementById('gap').value);
+      const initialDelay = parseFloat(document.getElementById('initialDelay').value);
+      const midInterval = parseFloat(document.getElementById('midInterval').value);
+      const cleanTime = parseFloat(document.getElementById('cleanTime').value);
+
+      const labelInterval = (length + gap) / speed;
+      const labelsPerSec = 1 / labelInterval;
+      const labelsPerMin = labelsPerSec * 60;
+      const labelsPerHr = labelsPerMin * 60;
+
+      const midInches = midInterval * 39.37;
+      const numCleanings = labelsPerHr / midInches;
+      const totalCleanTime = numCleanings * cleanTime;
+      const lostInches = totalCleanTime * speed;
+      const lostLabels = lostInches / length;
+      const actualLabelsHr = labelsPerHr - lostLabels;
+
+      document.getElementById('results').innerHTML = `
+        <table>
+          <tr><th>Metric</th><th>Value</th></tr>
+          <tr><td>Time to First Material (s)</td><td>${formatValue(initialDelay, 2)}</td></tr>
+          <tr><td>Label Interval (s)</td><td>${formatValue(labelInterval, 3)}</td></tr>
+          <tr><td>Labels/sec</td><td>${formatValue(labelsPerSec, 3)}</td></tr>
+          <tr><td>Labels/min</td><td>${formatValue(labelsPerMin, 2)}</td></tr>
+          <tr><td>Labels/hr</td><td>${formatValue(labelsPerHr, 2)}</td></tr>
+          <tr><td># Cleanings/hr</td><td>${formatValue(numCleanings, 2)}</td></tr>
+          <tr><td>Total Cleaning Time (s)</td><td>${formatValue(totalCleanTime, 2)}</td></tr>
+          <tr><td>Lost Inches to Cleaning</td><td>${formatValue(lostInches, 2)}</td></tr>
+          <tr><td>Lost Labels to Cleaning</td><td>${formatValue(lostLabels, 2)}</td></tr>
+          <tr><td>Actual Labels/hr</td><td>${formatValue(actualLabelsHr, 2)}</td></tr>
+        </table>
+      `;
+    });
+  </script>
+</body>
+</html>

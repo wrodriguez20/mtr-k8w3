@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AJ-Series Ink Estimation File Reformatter</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 600px; margin: 2rem auto; }
+    h1 { text-align: center; }
+    .uploader { margin-bottom: 1rem; }
+    button { padding: 0.5rem 1rem; font-size: 1rem; }
+  </style>
+</head>
+<body>
+  <h1>AJ-Series Ink Estimation File Reformatter</h1>
+  <input type="file" id="input-file" class="uploader" accept=".xlsx" />
+  <button id="process-btn" disabled>Process & Download</button>
+
+  <script>
+    const input = document.getElementById('input-file');
+    const button = document.getElementById('process-btn');
+    let buffer;
+
+    input.addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = evt => {
+        buffer = evt.target.result;
+        button.disabled = false;
+      };
+      reader.readAsArrayBuffer(file);
+    });
+
+    button.addEventListener('click', async () => {
+      if (!buffer) return;
+
+      // Ask user for output file name (without extension)
+      let fileName = prompt('Enter desired output file name (without extension):', 'reformatted');
+      if (!fileName) fileName = 'reformatted';
+      if (!fileName.toLowerCase().endsWith('.xlsx')) {
+        fileName = fileName + '.xlsx';
+      }
+
+      // Load input workbook
+      const inWb = new ExcelJS.Workbook();
+      await inWb.xlsx.load(buffer);
+      const inWs = inWb.worksheets[0];
+
+      // Extract sheet data to array
+      const sheetData = [];
+      inWs.eachRow(row => {
+        sheetData.push(row.values.slice(1));
+      });
+
+      // Find header row index
+      let headerIndex = sheetData.findIndex(r => r.includes('Design') && r.includes('Black'));
+      if (headerIndex === -1) headerIndex = 0;
+      const headers = sheetData[headerIndex];
+      const rows = sheetData.slice(headerIndex + 1);
+
+      // Map headers to indices
+      const idx = {};
+      headers.forEach((h, i) => { idx[h] = i; });
+
+      // Prepare output data with updated header name
+      const outHeader = ['Design', 'Total Ink Consumption (mL)', 'Ink Cost', 'Printer Schema', 'Reference'];
+      const outRows = rows.map(r => {
+        const design = r[idx['Design']] || '';
+        const black = parseFloat(r[idx['Black']]) || 0;
+        const cyan = parseFloat(r[idx['Cyan']]) || 0;
+        const magenta = parseFloat(r[idx['Magenta']]) || 0;
+        const yellow = parseFloat(r[idx['Yellow']]) || 0;
+        const total = black + cyan + magenta + yellow;
+        const inkCost = parseFloat(r[idx['Ink Cost']]) || 0;
+        // Prioritize 'Printer Schema' over 'Printer Name'
+        const schema = r[idx['Printer Schema']] || r[idx['Printer Name']] || '';
+        const reference = r[idx['Reference']] || '';
+        return [design, total, inkCost, schema, reference];
+      });
+
+      // Create output workbook and worksheet
+      const outWb = new ExcelJS.Workbook();
+      const outWs = outWb.addWorksheet('Reformatted');
+
+      // Add table with style
+      outWs.addTable({
+        name: 'ReformattedTable',
+        ref: 'A1',
+        headerRow: true,
+        totalsRow: false,
+        style: { theme: 'TableStyleMedium2', showRowStripes: true },
+        columns: outHeader.map(h => ({ name: h })),
+        rows: outRows
+      });
+
+      // Apply currency format with 3 decimal places to Ink Cost (3rd column)
+      outWs.getColumn(3).eachCell((cell, rowNumber) => {
+        if (rowNumber > 1) cell.numFmt = '$#,##0.000';
+      });
+
+      // Auto-fit column widths based on content
+      outWs.columns.forEach((col, i) => {
+        let maxLength = outHeader[i].length;
+        outRows.forEach(row => {
+          const val = row[i] != null ? row[i].toString() : '';
+          if (val.length > maxLength) maxLength = val.length;
+        });
+        col.width = maxLength + 2;
+      });
+
+      // Center align for Total Ink Consumption and Ink Cost columns
+      [outWs.getColumn(2), outWs.getColumn(3)].forEach(col => {
+        col.eachCell(cell => {
+          cell.alignment = { horizontal: 'center' };
+        });
+      });
+
+      // Export
+      const buf = await outWb.xlsx.writeBuffer();
+      const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+  </script>
+</body>
+</html>
