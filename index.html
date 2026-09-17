@@ -87,6 +87,27 @@
     display:flex;align-items:center;gap:16px;background:#FAFBFC;
   }
   .drop img{max-height:110px;max-width:180px;border:1px solid var(--line);border-radius:4px;background:#fff}
+  .extra-thumbs{display:flex;flex-wrap:wrap;gap:10px}
+  .extra-thumbs .thumb{position:relative}
+  .extra-thumbs .thumb img{max-height:80px;max-width:120px;border:1px solid var(--line);border-radius:4px;background:#fff;display:block}
+  .extra-thumbs .thumb button{
+    position:absolute;top:-8px;right:-8px;width:22px;height:22px;border-radius:50%;
+    border:1.5px solid var(--ink);background:#fff;color:var(--ink);font-size:13px;line-height:1;
+    cursor:pointer;font-weight:700;
+  }
+  .extra-thumbs .thumb button:hover{background:#F2F4F6}
+  .profile-list{margin-bottom:18px;max-width:520px}
+  .profile-list .prow{
+    display:flex;align-items:center;gap:10px;padding:7px 12px;
+    border:1.5px solid var(--line);border-radius:7px;margin-bottom:6px;background:#FAFBFC;
+  }
+  .profile-list .prow .pname{flex:1;overflow-wrap:break-word;min-width:0}
+  .profile-list .prow .src{font-size:12px;color:var(--muted);white-space:nowrap}
+  .profile-list .prow button{
+    border:1.5px solid var(--ink);background:#fff;border-radius:6px;
+    font-size:12px;padding:3px 9px;cursor:pointer;font-weight:600;
+  }
+  .profile-list .empty{color:var(--muted);font-size:13.5px;margin-bottom:14px}
   .drop .placeholder{color:var(--muted);font-size:13.5px}
   .btn{
     display:inline-block;padding:9px 18px;border-radius:7px;border:1.5px solid var(--ink);
@@ -133,6 +154,8 @@
   .report .imgcell img{display:block;max-height:118px;max-width:95%;margin:6px auto 0}
   .report .foot{font-weight:bold;font-size:12px;padding:3px 8px}
   .report .comments-body{min-height:44px;overflow-wrap:break-word;word-break:break-word;white-space:pre-wrap;font-size:15px}
+  .report .extra-photos{display:flex;flex-wrap:wrap;gap:10px;padding-top:4px}
+  .report .extra-photos img{max-height:118px;max-width:180px;display:block}
   .report .ref-text{margin-top:10px;overflow-wrap:break-word;word-break:break-word;min-height:24px}
   /* Flexible profile row: value cell grows with content, squeezing the cells to its right */
   .report .flexrow{display:flex;align-items:stretch;width:100%}
@@ -166,10 +189,29 @@
       <h1>Media Test Report Builder</h1>
       <p>Enter each product's test results step by step, then download the finished report as a PDF.</p>
     </div>
+    <button class="btn small" id="profilesBtn" type="button">Color profiles</button>
     <button class="btn small" id="resetBtn" type="button">Start over</button>
   </header>
 
   <nav class="stepper" id="stepper" aria-label="Progress"></nav>
+
+  <!-- Color profiles manager -->
+  <section class="panel hidden" id="profilesPanel">
+    <h2>Color profiles</h2>
+    <p class="sub">These names fill the "Color Profile Used" dropdown. The shared list comes from a <b>profiles.txt</b> file hosted next to this page (one profile per line — edit it in GitHub and every device gets it). Profiles you add below are saved on <b>this device only</b>.</p>
+    <div id="profileList" class="profile-list"></div>
+    <div class="field" style="display:flex;gap:10px;align-items:flex-end;max-width:520px">
+      <div style="flex:1">
+        <label for="newProfileInput">Add a profile on this device</label>
+        <input type="text" id="newProfileInput" placeholder="e.g. Matte Tag v3.icc">
+      </div>
+      <button class="btn small" id="addProfileBtn" type="button" style="margin-bottom:1px">Add</button>
+    </div>
+    <div class="btn-row">
+      <span></span>
+      <div class="right"><button class="btn primary" id="profilesDoneBtn" type="button">Done</button></div>
+    </div>
+  </section>
 
   <!-- STEP: setup -->
   <section class="panel" id="setupPanel">
@@ -210,6 +252,18 @@
       </div>
     </div>
 
+    <div class="field">
+      <label>Additional photos <span class="hint">optional — shown in a box below Comments on the report</span></label>
+      <div class="drop" style="flex-wrap:wrap">
+        <div class="extra-thumbs" id="extraThumbs"></div>
+        <span class="placeholder" id="extraPlaceholder">No additional photos.</span>
+        <div>
+          <button class="btn small" id="extraUploadBtn" type="button">Add photos</button>
+          <input type="file" id="extraInput" accept="image/*" multiple class="hidden">
+        </div>
+      </div>
+    </div>
+
     <div class="grade-grid">
       <div class="field">
         <label for="f_ink">Ink Receptive</label>
@@ -246,13 +300,13 @@
         <label for="f_res">Print Speed / Resolution used</label>
         <select id="f_res">
           <option value="">— Select —</option>
-          <option value="1200x1200">1200 × 1200 (9 ips)</option>
-          <option value="1200x600">1200 × 600 (18 ips)</option>
-          <option value="1200x300">1200 × 300 (27 ips)</option>
+          <option value="1200x1200">1200 × 1200</option>
+          <option value="1200x600">1200 × 600</option>
+          <option value="1200x300">1200 × 300</option>
         </select>
       </div>
       <div class="field">
-        <label for="f_speed">Speed Printed</label>
+        <label for="f_speed">Speed Printed <span class="hint">meters per minute — auto-fills from resolution</span></label>
         <input type="text" id="f_speed" placeholder="e.g. 18 ips">
       </div>
     </div>
@@ -260,7 +314,10 @@
     <div class="row2">
       <div class="field">
         <label for="f_profile">Color Profile Used</label>
-        <input type="text" id="f_profile" placeholder="e.g. Matte Tag v3.icc">
+        <select id="f_profile">
+          <option value="">— Select —</option>
+        </select>
+        <input type="text" id="f_profile_other" class="hidden" placeholder="Type the profile name" style="margin-top:8px">
       </div>
       <div class="field">
         <label for="f_altered">Color Profile Altered <span class="hint">changes to accommodate customer media</span></label>
@@ -315,7 +372,7 @@
   "use strict";
 
   var blankProduct = function(){
-    return { ref:"", image:null, ink:"", pq:"", mc:"", fp:"", res:"", speed:"",
+    return { ref:"", image:null, extras:[], ink:"", pq:"", mc:"", fp:"", res:"", speed:"",
              profile:"", altered:"", prod:"", max:"", comments:"" };
   };
 
@@ -355,6 +412,131 @@
     try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
   }
 
+  /* ---------- Color profiles ---------- */
+  var PROFILES_KEY = "mediaTestReport.profiles";
+  var baseProfiles = [];    // from profiles.txt next to this page
+  var customProfiles = [];  // added on this device
+  var OTHER = "__other__";
+
+  function loadCustomProfiles(){
+    try{
+      var raw = localStorage.getItem(PROFILES_KEY);
+      customProfiles = raw ? JSON.parse(raw) : [];
+      if(!Array.isArray(customProfiles)) customProfiles = [];
+    }catch(e){ customProfiles = []; }
+  }
+  function saveCustomProfiles(){
+    try{ localStorage.setItem(PROFILES_KEY, JSON.stringify(customProfiles)); }catch(e){}
+  }
+  function allProfiles(){
+    var seen = {}, out = [];
+    baseProfiles.concat(customProfiles).forEach(function(p){
+      var k = p.toLowerCase();
+      if(!seen[k]){ seen[k] = true; out.push(p); }
+    });
+    return out;
+  }
+  function rebuildProfileOptions(){
+    var sel = $("f_profile");
+    var current = getProfileValue();
+    sel.innerHTML = "";
+    var mk = function(val, label){
+      var o = document.createElement("option");
+      o.value = val; o.textContent = label; sel.appendChild(o);
+    };
+    mk("", "— Select —");
+    allProfiles().forEach(function(p){ mk(p, p); });
+    mk(OTHER, "Other (type it in)…");
+    setProfileValue(current);
+  }
+  function getProfileValue(){
+    var sel = $("f_profile");
+    if(!sel.options.length) return "";
+    return sel.value === OTHER ? $("f_profile_other").value : sel.value;
+  }
+  function setProfileValue(v){
+    var sel = $("f_profile"), other = $("f_profile_other");
+    v = v || "";
+    var match = null;
+    for(var i=0;i<sel.options.length;i++){
+      if(sel.options[i].value === v){ match = v; break; }
+    }
+    if(v === "" ){ sel.value = ""; other.classList.add("hidden"); other.value = ""; }
+    else if(match !== null && v !== OTHER){ sel.value = v; other.classList.add("hidden"); other.value = ""; }
+    else { sel.value = OTHER; other.classList.remove("hidden"); other.value = v; }
+  }
+  function fetchBaseProfiles(){
+    try{
+      fetch("profiles.txt", { cache:"no-store" }).then(function(res){
+        if(!res.ok) return null;
+        return res.text();
+      }).then(function(txt){
+        if(!txt) return;
+        baseProfiles = txt.split(/\r?\n/).map(function(s){ return s.trim(); })
+          .filter(function(s){ return s && s.charAt(0) !== "#"; });
+        rebuildProfileOptions();
+      }).catch(function(){});
+    }catch(e){}
+  }
+
+  /* ---------- Profile manager panel ---------- */
+  function renderProfileList(){
+    var wrap = $("profileList"); wrap.innerHTML = "";
+    if(!baseProfiles.length && !customProfiles.length){
+      var d = document.createElement("div");
+      d.className = "empty";
+      d.textContent = "No profiles yet. Add one below, or create a profiles.txt file in your GitHub repo.";
+      wrap.appendChild(d);
+      return;
+    }
+    var row = function(name, removable, idx){
+      var r = document.createElement("div"); r.className = "prow";
+      var n = document.createElement("span"); n.className = "pname"; n.textContent = name;
+      var s = document.createElement("span"); s.className = "src";
+      s.textContent = removable ? "this device" : "profiles.txt";
+      r.appendChild(n); r.appendChild(s);
+      if(removable){
+        var b = document.createElement("button"); b.type = "button"; b.textContent = "Remove";
+        b.addEventListener("click", function(){
+          customProfiles.splice(idx, 1);
+          saveCustomProfiles(); renderProfileList(); rebuildProfileOptions();
+        });
+        r.appendChild(b);
+      }
+      wrap.appendChild(r);
+    };
+    baseProfiles.forEach(function(p){ row(p, false); });
+    customProfiles.forEach(function(p, i){ row(p, true, i); });
+  }
+  function addCustomProfile(){
+    var inp = $("newProfileInput");
+    var name = inp.value.trim();
+    if(!name) return;
+    var exists = allProfiles().some(function(p){ return p.toLowerCase() === name.toLowerCase(); });
+    if(exists){ toast("That profile is already in the list"); return; }
+    customProfiles.push(name);
+    saveCustomProfiles();
+    inp.value = "";
+    renderProfileList(); rebuildProfileOptions();
+  }
+  $("addProfileBtn").addEventListener("click", addCustomProfile);
+  $("newProfileInput").addEventListener("keydown", function(e){
+    if(e.key === "Enter"){ e.preventDefault(); addCustomProfile(); }
+  });
+  $("profilesBtn").addEventListener("click", function(){
+    if(state.step >= 0 && state.step < state.count) saveForm(state.step);
+    setupPanel.classList.add("hidden");
+    productPanel.classList.add("hidden");
+    reviewPanel.classList.add("hidden");
+    renderProfileList();
+    $("profilesPanel").classList.remove("hidden");
+    window.scrollTo({top:0});
+  });
+  $("profilesDoneBtn").addEventListener("click", function(){
+    $("profilesPanel").classList.add("hidden");
+    goTo(state.step);
+  });
+
   var $ = function(id){ return document.getElementById(id); };
   var setupPanel=$("setupPanel"), productPanel=$("productPanel"), reviewPanel=$("reviewPanel");
 
@@ -381,6 +563,7 @@
   function goTo(step){
     if(state.step >= 0 && state.step < state.count) saveForm(state.step);
     state.step = step;
+    $("profilesPanel").classList.add("hidden");
     setupPanel.classList.toggle("hidden", step !== -1);
     productPanel.classList.toggle("hidden", !(step >= 0 && step < state.count));
     reviewPanel.classList.toggle("hidden", step !== state.count);
@@ -413,23 +596,64 @@
   function loadForm(i){
     var p = state.products[i];
     $("productTitle").textContent = "Product " + (i+1) + " of " + state.count;
-    fields.forEach(function(f){ $(fieldIds[f]).value = p[f]; });
+    fields.forEach(function(f){
+      if(f === "profile") return;
+      $(fieldIds[f]).value = p[f];
+    });
+    setProfileValue(p.profile);
     setImagePreview(p.image);
+    renderExtraThumbs();
     $("nextBtn").textContent = (i === state.count-1) ? "Review report" : "Next product";
   }
   function saveForm(i){
     var p = state.products[i];
-    fields.forEach(function(f){ p[f] = $(fieldIds[f]).value; });
+    fields.forEach(function(f){
+      if(f === "profile") return;
+      p[f] = $(fieldIds[f]).value;
+    });
+    p.profile = getProfileValue();
   }
 
   // Save as you type, so a half-finished form survives closing the browser
   fields.forEach(function(f){
+    if(f === "profile") return;
     $(fieldIds[f]).addEventListener("input", function(){
       if(state.step >= 0 && state.step < state.count){
         state.products[state.step][f] = this.value;
         persist();
       }
     });
+  });
+  $("f_profile").addEventListener("change", function(){
+    var other = $("f_profile_other");
+    if(this.value === OTHER){ other.classList.remove("hidden"); other.focus(); }
+    else { other.classList.add("hidden"); other.value = ""; }
+    if(state.step >= 0 && state.step < state.count){
+      state.products[state.step].profile = getProfileValue();
+      persist();
+    }
+  });
+  $("f_profile_other").addEventListener("input", function(){
+    if(state.step >= 0 && state.step < state.count){
+      state.products[state.step].profile = this.value;
+      persist();
+    }
+  });
+
+  // Auto-fill Speed Printed from the selected resolution (editable afterwards)
+  var SPEED_BY_RES = {
+    "1200x1200":"9 (meters per min)",
+    "1200x600":"18 (meters per min)",
+    "1200x300":"27 (meters per min)"
+  };
+  $("f_res").addEventListener("change", function(){
+    var speed = SPEED_BY_RES[this.value];
+    if(speed === undefined) return;
+    $("f_speed").value = speed;
+    if(state.step >= 0 && state.step < state.count){
+      state.products[state.step].speed = speed;
+      persist();
+    }
   });
 
   /* ---------- Image upload ---------- */
@@ -473,6 +697,50 @@
     state.products[state.step].image = null;
     setImagePreview(null);
     persist();
+  });
+
+  /* ---------- Additional photos ---------- */
+  function renderExtraThumbs(){
+    var p = state.products[state.step];
+    if(!p.extras) p.extras = [];
+    var wrap = $("extraThumbs");
+    wrap.innerHTML = "";
+    p.extras.forEach(function(src, idx){
+      var t = document.createElement("div");
+      t.className = "thumb";
+      var img = document.createElement("img");
+      img.src = src; img.alt = "Additional photo " + (idx+1);
+      var x = document.createElement("button");
+      x.type = "button"; x.textContent = "\u00D7"; x.title = "Remove photo";
+      x.addEventListener("click", function(){
+        p.extras.splice(idx, 1);
+        renderExtraThumbs();
+        persist();
+      });
+      t.appendChild(img); t.appendChild(x);
+      wrap.appendChild(t);
+    });
+    $("extraPlaceholder").classList.toggle("hidden", p.extras.length > 0);
+  }
+  $("extraUploadBtn").addEventListener("click", function(){ $("extraInput").click(); });
+  $("extraInput").addEventListener("change", function(e){
+    var files = Array.prototype.slice.call(e.target.files || []);
+    if(!files.length) return;
+    var p = state.products[state.step];
+    if(!p.extras) p.extras = [];
+    var remaining = files.length;
+    files.forEach(function(file){
+      var reader = new FileReader();
+      reader.onload = function(ev){
+        shrinkImage(ev.target.result, function(small){
+          p.extras.push(small);
+          remaining--;
+          if(remaining === 0){ renderExtraThumbs(); persist(); }
+        });
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = "";
   });
 
   /* ---------- Start over ---------- */
@@ -560,6 +828,12 @@
         '<tr><td colspan="6" class="foot">*Estimated productivity is based on continuous printing and does not take into consideration time for maintenance cleaning, printer environmental conditions, or feeding delays due to material inconsistency</td></tr>' +
         // Comments
         '<tr><td colspan="6"><span class="lbl">Comments:</span><div class="comments-body">'+esc(p.comments).replace(/\n/g,"<br>")+'</div></td></tr>' +
+        // Additional photos (only when present)
+        (p.extras && p.extras.length
+          ? '<tr><td colspan="6"><span class="lbl">Additional Photos:</span><div class="extra-photos">' +
+              p.extras.map(function(src){ return '<img src="'+src+'" alt="Additional photo">'; }).join("") +
+            '</div></td></tr>'
+          : '') +
       '</table>' +
       '</div>' +
       '</div>' +
@@ -612,6 +886,10 @@
     var t = $("toast"); t.textContent = msg; t.classList.add("show");
     setTimeout(function(){ t.classList.remove("show"); }, 2600);
   }
+
+  loadCustomProfiles();
+  rebuildProfileOptions();
+  fetchBaseProfiles();
 
   if(restore()){
     $("numProducts").value = state.count;

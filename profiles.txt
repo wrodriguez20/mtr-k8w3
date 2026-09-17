@@ -1,0 +1,13 @@
+# One color profile per line. Lines starting with # are ignored.
+# Edit this file in GitHub and every device gets the updated list.
+White Kraft Paper PSI_Pigment_1200x1200 1Pass_260807
+White Kraft Paper PSI_Pigment_1200x600 1Pass_260807
+White Craft Pigmento_V2 1200x1200
+White Craft Pigmento_V2 1200x600
+White Craft Pigmento_V2 1200x300
+White Kraft Pizza Box PkgAtl_PIGMENT_1200x1200
+White Kraft Pizza Box PkgAtl_PIGMENT_1200x600
+White Kraft Pizza Box PkgAtl_PIGMENT_1200x300
+White_Kraft_Cardboard_Pigment_1200x1200
+White_Kraft_EcoPlus_PaperBag_Pigment_1200x600 1Pass_260707
+Kraft_EcoPlus_PaperBag_1200x600 1Pass_260707
