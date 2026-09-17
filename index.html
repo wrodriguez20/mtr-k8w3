@@ -199,6 +199,7 @@
   <section class="panel hidden" id="profilesPanel">
     <h2>Color profiles</h2>
     <p class="sub">These names fill the "Color Profile Used" dropdown. The shared list comes from a <b>profiles.txt</b> file hosted next to this page (one profile per line — edit it in GitHub and every device gets it). Profiles you add below are saved on <b>this device only</b>.</p>
+    <p class="sub" id="profilesStatus" style="font-weight:600"></p>
     <div id="profileList" class="profile-list"></div>
     <div class="field" style="display:flex;gap:10px;align-items:flex-end;max-width:520px">
       <div style="flex:1">
@@ -378,6 +379,9 @@
 
   var state = { count:1, products:[blankProduct()], step:-1 }; // -1 = setup, 0..n-1 = product, n = review
 
+  var $ = function(id){ return document.getElementById(id); };
+  var setupPanel=$("setupPanel"), productPanel=$("productPanel"), reviewPanel=$("reviewPanel");
+
   /* ---------- Auto-save (survives closing the browser) ---------- */
   var STORAGE_KEY = "mediaTestReport.v1";
   var storageWarned = false;
@@ -465,18 +469,34 @@
     else if(match !== null && v !== OTHER){ sel.value = v; other.classList.add("hidden"); other.value = ""; }
     else { sel.value = OTHER; other.classList.remove("hidden"); other.value = v; }
   }
+  var profilesStatus = "Checking for profiles.txt…";
+  function setProfilesStatus(msg, ok){
+    profilesStatus = msg;
+    var el = $("profilesStatus");
+    if(el){ el.textContent = msg; el.style.color = ok ? "#1E7A46" : "#B3261E"; }
+  }
   function fetchBaseProfiles(){
+    var url = new URL("profiles.txt", window.location.href).href;
     try{
       fetch("profiles.txt", { cache:"no-store" }).then(function(res){
-        if(!res.ok) return null;
+        if(!res.ok){
+          setProfilesStatus("profiles.txt not found (HTTP " + res.status + ") at " + url, false);
+          return null;
+        }
         return res.text();
       }).then(function(txt){
-        if(!txt) return;
+        if(txt === null || txt === undefined) return;
         baseProfiles = txt.split(/\r?\n/).map(function(s){ return s.trim(); })
           .filter(function(s){ return s && s.charAt(0) !== "#"; });
+        setProfilesStatus("profiles.txt loaded — " + baseProfiles.length + " profile" + (baseProfiles.length===1?"":"s") + " found.", true);
         rebuildProfileOptions();
-      }).catch(function(){});
-    }catch(e){}
+        if(!$("profilesPanel").classList.contains("hidden")) renderProfileList();
+      }).catch(function(err){
+        setProfilesStatus("Could not load profiles.txt (" + err + "). This is expected when the page is opened as a local file instead of a hosted URL.", false);
+      });
+    }catch(e){
+      setProfilesStatus("Could not check for profiles.txt: " + e, false);
+    }
   }
 
   /* ---------- Profile manager panel ---------- */
@@ -529,6 +549,7 @@
     productPanel.classList.add("hidden");
     reviewPanel.classList.add("hidden");
     renderProfileList();
+    var st = $("profilesStatus"); if(st && !st.textContent) st.textContent = profilesStatus;
     $("profilesPanel").classList.remove("hidden");
     window.scrollTo({top:0});
   });
@@ -536,9 +557,6 @@
     $("profilesPanel").classList.add("hidden");
     goTo(state.step);
   });
-
-  var $ = function(id){ return document.getElementById(id); };
-  var setupPanel=$("setupPanel"), productPanel=$("productPanel"), reviewPanel=$("reviewPanel");
 
   /* ---------- Stepper ---------- */
   function renderStepper(){
