@@ -1,0 +1,4 @@
+# One color profile per line. Lines starting with # are ignored.
+# Edit this file in GitHub and every device gets the updated list.
+QL Gloss Paper.icc
+QL Matte BOPP.icc
